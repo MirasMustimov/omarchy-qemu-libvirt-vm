@@ -18,20 +18,39 @@ sudo usermod -aG libvirt $USER    # then log out and back in
 
 ## Usage
 
-Put an ISO in `~/Documents` or `~/Downloads`, then:
+**1. Put the ISO where the script looks** — `~/Documents` or `~/Downloads`.
+
+**2. Preview first (optional).**
 
 ```bash
-./mkvm.sh --dry-run    # print the XML, change nothing
-./mkvm.sh              # create it
-./mkvm.sh --clean      # reclaim disk: delete staged ISOs nothing references
+./mkvm.sh --dry-run
 ```
 
-Answer six prompts. Open the VM in `virt-manager` when it finishes.
+Prints the XML it would create and changes nothing.
 
-Once the install is done, run `./mkvm.sh --clean` to delete the staged copy of
-the ISO. It skips any ISO a domain still points at, so it is safe to run at any
-time — an install in progress will not be touched. Your original in
-`~/Documents` is never removed.
+**3. Create the VM.**
+
+```bash
+./mkvm.sh
+```
+
+**4. Answer the prompts** — ISO, name, OS variant, memory, vCPUs, disk size.
+Memory, CPU and disk options are filtered to what this machine can back.
+
+**5. Enter your password when asked.** The ISO is copied into
+`/var/lib/libvirt/images`; expect a minute or two for a large one.
+
+**6. Open the VM in `virt-manager`** and run the OS installer as normal.
+
+**7. Reclaim the disk space** once the install finishes.
+
+```bash
+./mkvm.sh --clean
+```
+
+Deletes staged ISO copies. Skips any ISO a domain still references, so it is
+safe to run at any time — an install in progress will not be touched, and your
+original in `~/Documents` is never removed.
 
 ## Notes
 
