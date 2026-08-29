@@ -12,6 +12,9 @@ CONNECT=qemu:///system
 # Remove staged ISOs, skipping any a domain still points at. Safe at any time:
 # an install in progress still references its ISO, so it will not be touched.
 if [[ ${1:-} == --clean ]]; then
+  echo "Cleaning staged ISOs in $IMAGE_DIR"
+  echo "(originals elsewhere, e.g. ~/Documents, are never touched)"
+  echo
   for iso in "$IMAGE_DIR"/*.iso; do
     [[ -e $iso ]] || continue
     used=false
@@ -20,9 +23,10 @@ if [[ ${1:-} == --clean ]]; then
       virsh --connect "$CONNECT" dumpxml "$dom" | grep -qF "$iso" && used=true
     done
     if $used; then
-      echo "in use, keeping: $(basename "$iso")"
+      echo "  keeping  $iso"
+      echo "           (still referenced by a domain)"
     else
-      echo "removing:        $(basename "$iso")"
+      echo "  removing $iso  ($(du -h "$iso" | cut -f1))"
       sudo rm -f "$iso"
     fi
   done
