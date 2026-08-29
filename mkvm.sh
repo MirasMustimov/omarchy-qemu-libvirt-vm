@@ -3,12 +3,40 @@
 #
 #   ./mkvm.sh              create the VM
 #   ./mkvm.sh --dry-run    print the XML, change nothing
+#   ./mkvm.sh --clean      remove staged ISOs no domain references
 set -euo pipefail
 
 IMAGE_DIR=/var/lib/libvirt/images
+CONNECT=qemu:///system
+
+# Remove staged ISOs, skipping any a domain still points at. Safe at any time:
+# an install in progress still references its ISO, so it will not be touched.
+if [[ ${1:-} == --clean ]]; then
+  for iso in "$IMAGE_DIR"/*.iso; do
+    [[ -e $iso ]] || continue
+    used=false
+    for dom in $(virsh --connect "$CONNECT" list --all --name); do
+      [[ -n $dom ]] || continue
+      virsh --connect "$CONNECT" dumpxml "$dom" | grep -qF "$iso" && used=true
+    done
+    if $used; then
+      echo "in use, keeping: $(basename "$iso")"
+    else
+      echo "removing:        $(basename "$iso")"
+      sudo rm -f "$iso"
+    fi
+  done
+  exit 0
+fi
 
 DRY_RUN=false
 [[ ${1:-} == --dry-run ]] && DRY_RUN=true
+
+# If we staged an ISO and then failed, do not leave several GB behind.
+STAGED=""
+STAGED_BY_US=false
+cleanup() { $STAGED_BY_US && sudo rm -f "$STAGED"; }
+trap cleanup ERR INT TERM
 
 ISO=$(gum choose --header "Which ISO?" \
       $(find ~/Documents ~/Downloads -maxdepth 1 -name '*.iso' 2>/dev/null))
@@ -60,13 +88,14 @@ else
     echo "Copying $(du -h "$ISO" | cut -f1) ISO into $IMAGE_DIR (needs sudo)"
     sudo -v                     # prompt for the password before the spinner hides it
     gum spin --title "Copying $(basename "$ISO")…" -- sudo cp "$ISO" "$STAGED"
+    STAGED_BY_US=true
   fi
 fi
 
 DRY_ARGS=()
 $DRY_RUN && DRY_ARGS=(--dry-run --print-xml)
 
-virt-install --connect qemu:///system \
+virt-install --connect "$CONNECT" \
   --name "$NAME" \
   --memory "$MEMORY" --vcpus "$VCPUS" --cpu host-passthrough \
   --machine q35 --boot uefi \
