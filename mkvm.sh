@@ -9,6 +9,8 @@ set -euo pipefail
 IMAGE_DIR=/var/lib/libvirt/images
 CONNECT=qemu:///system
 
+die() { echo "$*" >&2; exit 1; }
+
 # Remove staged ISOs, skipping any a domain still points at. Safe at any time:
 # an install in progress still references its ISO, so it will not be touched.
 if [[ ${1:-} == --clean ]]; then
@@ -42,8 +44,13 @@ STAGED_BY_US=false
 cleanup() { $STAGED_BY_US && sudo rm -f "$STAGED"; }
 trap cleanup ERR INT TERM
 
-ISO=$(gum choose --header "Which ISO?" \
-      $(find ~/Documents ~/Downloads -maxdepth 1 -name '*.iso' 2>/dev/null))
+# mapfile, not $(find ...) - unquoted word splitting breaks paths with spaces.
+mapfile -t CANDIDATES < <(find ~/Documents ~/Downloads -maxdepth 1 -name '*.iso' 2>/dev/null)
+[[ ${#CANDIDATES[@]} -gt 0 ]] || die "No .iso found in ~/Documents or ~/Downloads"
+
+ISO=$(gum choose --header "Which ISO?" "${CANDIDATES[@]}")
+[[ -n $ISO ]] || die "cancelled"
+
 NAME=$(gum input --prompt "Name: " --value "$(basename "$ISO" .iso)")
 
 OS_VARIANT=$(gum choose --header "OS variant?" \
@@ -60,6 +67,19 @@ VCPUS=$(gum choose --header "vCPUs?" \
 FREE_GB=$(df -BG --output=avail "$IMAGE_DIR" | tail -1 | tr -dc '0-9')
 DISK_SIZE=$(gum choose --header "Disk size (GiB)?" \
             $(for d in 30 20 50 100 200; do ((d <= FREE_GB)) && echo $d; done))
+
+# Escaping a gum prompt leaves the variable empty; $() hides that from set -e.
+for v in NAME OS_VARIANT MEMORY VCPUS DISK_SIZE; do
+  [[ -n ${!v} ]] || die "cancelled"
+done
+
+# Fail clearly rather than letting virt-install complain about a collision.
+if virsh --connect "$CONNECT" dominfo "$NAME" >/dev/null 2>&1; then
+  die "a domain named '$NAME' already exists"
+fi
+if [[ -e "$IMAGE_DIR/$NAME.qcow2" ]]; then
+  die "disk image already exists: $IMAGE_DIR/$NAME.qcow2"
+fi
 
 # Find a GPU that can back virgl. The proprietary NVIDIA driver exposes no
 # usable EGL render node; virt-install's auto-pick takes the lowest PCI
