@@ -8,13 +8,31 @@ usermode networking — so no `virbr0`, no IP forwarding, no host firewall rules
 
 ## Prerequisites
 
-Omarchy ships `gum`. The rest is one-time setup:
+Omarchy ships `gum`. The rest is one-time setup.
 
 ```bash
 sudo pacman -S --needed virt-manager libvirt qemu-desktop edk2-ovmf
+```
+
+`virt-manager` gives you the GUI and the `virt-install` this script calls,
+`libvirt` is the daemon that manages VMs, `qemu-desktop` is the emulator that
+runs them, and `edk2-ovmf` is the UEFI firmware the guests boot from.
+
+```bash
 sudo systemctl enable --now libvirtd.socket
+```
+
+Turns on the system-wide libvirt. It is socket-activated: systemd holds the
+socket and only starts the daemon when something connects, so nothing runs
+while you are not using VMs.
+
+```bash
 sudo usermod -aG libvirt $USER    # then log out and back in
 ```
+
+Lets you manage system VMs without root. **Do not drop the `-a`** — `-G` alone
+replaces your groups, which would remove you from `wheel` and cost you `sudo`.
+Group membership is applied at login, so a fresh login is required.
 
 ## Usage
 
