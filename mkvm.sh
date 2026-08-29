@@ -111,7 +111,15 @@ else
   if [[ ! -f $STAGED ]]; then
     echo "Copying $(du -h "$ISO" | cut -f1) ISO into $IMAGE_DIR (needs sudo)"
     sudo -v                     # prompt for the password before the spinner hides it
-    gum spin --title "Copying $(basename "$ISO")…" -- sudo cp "$ISO" "$STAGED"
+    # Run the copy in the background and spin on a plain wait loop. Using
+    # `gum spin -- sudo cp` instead lets sudo grab /dev/tty, which garbles
+    # gum's output into raw escape sequences. /proc, not `kill -0`: the copy
+    # runs as root and signalling it from here fails with EPERM.
+    sudo cp "$ISO" "$STAGED" &
+    cp_pid=$!
+    gum spin --title "Copying $(basename "$ISO")…" -- \
+      bash -c "while [ -d /proc/$cp_pid ]; do sleep 0.5; done"
+    wait "$cp_pid"
     STAGED_BY_US=true
   fi
 fi
@@ -132,3 +140,11 @@ virt-install --connect "$CONNECT" \
   --channel none --redirdev none --sound none \
   --osinfo "$OS_VARIANT" --noautoconsole \
   "${DRY_ARGS[@]}"
+
+# virt-install's closing "Domain is still running" reads like a warning. It is
+# not: --noautoconsole means it returns while the guest runs its installer.
+$DRY_RUN || cat <<EOF
+
+Created '$NAME'. The guest is now running its installer.
+Open it in virt-manager to continue, then run './mkvm.sh --clean' when done.
+EOF
