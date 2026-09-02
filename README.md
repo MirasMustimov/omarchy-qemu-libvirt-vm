@@ -11,12 +11,30 @@ usermode networking — so no `virbr0`, no IP forwarding, no host firewall rules
 Omarchy ships `gum`. The rest is one-time setup.
 
 ```bash
-sudo pacman -S --needed virt-manager libvirt qemu-desktop edk2-ovmf
+sudo pacman -S --needed virt-manager libvirt qemu-desktop edk2-ovmf virglrenderer
 ```
 
 `virt-manager` gives you the GUI and the `virt-install` this script calls,
 `libvirt` is the daemon that manages VMs, `qemu-desktop` is the emulator that
-runs them, and `edk2-ovmf` is the UEFI firmware the guests boot from.
+runs them, `edk2-ovmf` is the UEFI firmware the guests boot from, and
+`virglrenderer` is what makes 3D acceleration work.
+
+Install them **explicitly**, as above, even if they are already present as
+someone else's dependency — see the warning below.
+
+### If you later remove GNOME Boxes
+
+Boxes pulls in QEMU and `edk2-ovmf`. virt-manager does not: it depends only on
+`virt-install`, and libvirt treats QEMU as an *optional* dependency. So
+`pacman -Rns gnome-boxes` will happily remove the emulator and firmware your
+VMs need as unused orphans, and virt-manager then fails with:
+
+```
+Cannot check QEMU binary /usr/bin/qemu-system-x86_64: No such file or directory
+```
+
+Installing the packages explicitly prevents this. If it already happened, the
+`pacman -S` line above puts everything back — your VMs and disks are untouched.
 
 ```bash
 sudo systemctl enable --now libvirtd.socket
