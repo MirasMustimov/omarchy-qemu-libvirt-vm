@@ -137,7 +137,7 @@ virt-install --connect "$CONNECT" \
   --graphics "$GRAPHICS" \
   --video "$VIDEO" \
   --input tablet,bus=usb \
-  --channel none --redirdev none --sound none \
+  --channel none --redirdev none \
   --osinfo "$OS_VARIANT" --noautoconsole \
   "${DRY_ARGS[@]}"
 

@@ -3,8 +3,8 @@
 Creates a libvirt VM on Omarchy with defaults that actually work: q35 + UEFI,
 virtio disk/net/gpu, 3D acceleration, and a USB tablet (no mouse lag).
 
-Omits clipboard, USB redirection, audio and smartcard channels, and uses
-usermode networking — so no `virbr0`, no IP forwarding, no host firewall rules.
+Omits clipboard, USB redirection and smartcard channels, and uses usermode
+networking — so no `virbr0`, no IP forwarding, no host firewall rules.
 
 ## Prerequisites
 
